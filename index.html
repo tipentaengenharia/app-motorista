@@ -364,6 +364,21 @@ function VehicleScreen({driverName, onDone, onBack, sessaoIniciada, onRetomar}) 
   const [carBloqueado, setCarBloqueado] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [driverBloqueado, setDriverBloqueado] = useState(null);
+  const [checkingDriver, setCheckingDriver] = useState(false);
+
+  // Check if driver already has an open session
+  useEffect(() => {
+    if (!driverName || sessaoIniciada) return;
+    setCheckingDriver(true);
+    fetch(SCRIPT_URL + '?action=checkDriverStatus&motorista=' + encodeURIComponent(driverName))
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.data && !res.data.livre) setDriverBloqueado(res.data);
+      })
+      .catch(() => {})
+      .finally(() => setCheckingDriver(false));
+  }, [driverName]);
 
   useEffect(() => {
     if (!sel || !driverName || sessaoIniciada) return;
@@ -405,6 +420,17 @@ function VehicleScreen({driverName, onDone, onBack, sessaoIniciada, onRetomar}) 
         </div>
         <h2 style={{fontSize:'20px',fontWeight:'800',color:'#1a1a2e'}}>Qual veículo hoje?</h2>
       </div>
+      {checkingDriver && (
+        <div style={{textAlign:'center',color:'#6b7280',fontSize:'13px',padding:'8px 0 4px'}}>Verificando rotas em aberto...</div>
+      )}
+      {driverBloqueado && (
+        <div style={{background:'#fef2f2',border:'2px solid #ef4444',borderRadius:'12px',padding:'14px',marginBottom:'12px',textAlign:'center'}}>
+          <div style={{fontSize:'20px',marginBottom:'6px'}}>🚫</div>
+          <div style={{fontWeight:'800',color:'#dc2626',fontSize:'14px'}}>Você já tem uma rota em aberto</div>
+          <div style={{color:'#7f1d1d',fontSize:'13px',marginTop:'4px'}}>Veículo {driverBloqueado.vtr} · iniciada às {driverBloqueado.horaInicio}</div>
+          <div style={{color:'#7f1d1d',fontSize:'12px',marginTop:'4px'}}>Finalize a rota anterior antes de iniciar uma nova</div>
+        </div>
+      )}
       <div className="vehicle-grid">
         {VEICULOS.map(v => (
           <div key={v.placa} className={`vehicle-card ${sel===v.placa?'selected':''}`} onClick={()=>{setSel(v.placa);setCarBloqueado(null);}}>
@@ -433,7 +459,7 @@ function VehicleScreen({driverName, onDone, onBack, sessaoIniciada, onRetomar}) 
               </div>
               <div style={{color:'#7f1d1d',fontSize:'12px',marginTop:'4px'}}>Aguarde a finalização ou contate o administrador</div>
             </div>
-          ) : (
+          ) : driverBloqueado ? null : (
             <button className="btn-primary" disabled={loading} onClick={handleIniciarRota}
               style={{background:'#059669'}}>
               {loading ? 'Iniciando...' : '🚗 Iniciar Rota'}
